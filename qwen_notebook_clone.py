@@ -4,7 +4,11 @@
 # Import in the same order as the notebook
 import re
 import torch
+import os
 from unsloth import FastLanguageModel, PatchFastRL, is_bfloat16_supported
+
+# Enable Unsloth's CLI training metrics visualization
+os.environ["UNSLOTH_DISPLAY_METRICS"] = "true"
 
 # Apply patch exactly like notebook
 PatchFastRL("GRPO", FastLanguageModel)
@@ -127,7 +131,7 @@ def xmlcount_reward_func(completions, **kwargs) -> list[float]:
 from trl import GRPOConfig, GRPOTrainer
 from vllm import SamplingParams
 
-# IMPORTANT: Use EXACTLY the same configuration as the notebook
+# IMPORTANT: Extended training configuration for better results
 training_args = GRPOConfig(
     use_vllm = True, 
     learning_rate = 5e-6,
@@ -137,26 +141,33 @@ training_args = GRPOConfig(
     warmup_ratio = 0.1,
     lr_scheduler_type = "cosine",
     optim = "adamw_8bit",
-    logging_steps = 1,
+    logging_steps = 5,  # More frequent logs for better CLI visualization
     bf16 = is_bfloat16_supported(),
     fp16 = not is_bfloat16_supported(),
     per_device_train_batch_size = 1,
-    gradient_accumulation_steps = 1,
+    gradient_accumulation_steps = 2,  # Increased for better stability
     num_generations = 8,
     max_prompt_length = 256,
     max_completion_length = 200,
-    max_steps = 250,
-    save_steps = 250,
+    max_steps = 2000,  # Increased 8x for longer training
+    save_steps = 500,  # Save checkpoints more frequently
     max_grad_norm = 0.1,
-    report_to = "none",
+    report_to = "tensorboard",  # Enable tensorboard reporting for metrics display
     output_dir = "outputs",
+    save_total_limit = 3,  # Keep only the last 3 checkpoints to save disk space
+    # Enable detailed metrics logging
+    log_level = "info",
+    disable_tqdm = False,  # Ensure progress bars are displayed
+    evaluation_strategy = "steps",  # Enable regular evaluation
+    eval_steps = 50,  # Evaluate frequently to update metrics
 )
 
-# Train the model exactly like the notebook
-print("Starting GRPO training with EXACT notebook settings...")
+# Train the model with extended training
+print("Starting GRPO training with EXTENDED training settings...")
 print(f"per_device_train_batch_size = {training_args.per_device_train_batch_size}")
 print(f"gradient_accumulation_steps = {training_args.gradient_accumulation_steps}")
 print(f"num_generations = {training_args.num_generations}")
+print(f"max_steps = {training_args.max_steps} (increased for better results)")
 
 # Monkey patch the validation in the GRPOTrainer to bypass the divisibility check
 # This is a workaround for the mysterious bug in TRL's implementation

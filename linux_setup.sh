@@ -31,20 +31,29 @@ install_pkg() {
     if [ "$USE_PIP" = true ]; then
         pip install $@
     else
-        uv pip install $@
+        uv pip install --system $@
     fi
 }
 
-# Install dependencies 
-echo "Installing dependencies..."
+# Install core dependencies
+echo "Installing core dependencies..."
+install_pkg setuptools wheel ninja pyyaml
+
+# Install ML dependencies 
+echo "Installing ML dependencies..."
 install_pkg transformers accelerate peft trl datasets bitsandbytes sentencepiece scipy einops
+
+# Install vLLM (required for fast_inference)
+echo "Installing vLLM (required for fast_inference)..."
+install_pkg vllm xformers
 
 # Skip flash-attn by default as it's complex to build
 echo "Note: Skipping flash-attn installation for stability"
 echo "The model will work without it, just slightly slower"
 
-# Install unsloth
-echo "Installing unsloth..."
+# Install unsloth and dependencies
+echo "Installing unsloth and related packages..."
+install_pkg packaging protobuf tiktoken
 install_pkg unsloth
 
 # Clone unsloth if needed (for GRPO)
