@@ -1,20 +1,17 @@
 #!/bin/bash
-# Script to set up environment for GRPO training on Linux
-# Assumes PyTorch 2.4 is already installed
+# Script to set up GRPO training on Linux using system PyTorch
+# Uses the existing system PyTorch 2.4+ installation
 
 set -e  # Exit on error
 
 echo "Setting up environment for GRPO training on Linux..."
 
-# Create virtual environment if it doesn't exist
-if [ ! -d "linux_env" ]; then
-    echo "Creating virtual environment..."
-    python -m venv linux_env
-    source linux_env/bin/activate
-else
-    echo "Using existing virtual environment..."
-    source linux_env/bin/activate
-fi
+# Verify system PyTorch installation
+echo "Verifying system PyTorch installation..."
+python -c "import torch, numpy; import pkg_resources; torch_ver = pkg_resources.parse_version(torch.__version__.split('+')[0]); req_ver = pkg_resources.parse_version('2.4.0'); assert torch_ver >= req_ver, f'PyTorch 2.4+ required, found {torch.__version__}'; print(f'✓ System PyTorch {torch.__version__} detected')" || { 
+    echo "Error: System PyTorch 2.4+ not found. Please check your RunPod image."; 
+    exit 1; 
+}
 
 # Install uv (faster package installer)
 echo "Installing uv package installer..."
@@ -25,35 +22,30 @@ export PATH="$HOME/.cargo/bin:$PATH"
 
 # Verify uv installation
 which uv || { 
-    echo "Error: uv installation failed. Try installing manually: curl -LsSf https://astral.sh/uv/install.sh | sh"; 
-    exit 1; 
+    echo "Error: uv installation failed. Falling back to pip..."; 
+    USE_PIP=true
 }
 
-# Install required packages
-echo "Installing required packages..."
-uv pip install setuptools wheel
-
-# First ensure PyTorch is properly installed in the virtual environment
-echo "Installing PyTorch 2.4..."
-uv pip install torch>=2.4.0
-
-# Verify PyTorch 2.4 installation
-python -c "import torch; assert torch.__version__.startswith('2.4'), 'PyTorch 2.4+ required, found '+torch.__version__; print('✓ PyTorch', torch.__version__)" || { 
-    echo "Error: PyTorch 2.4+ installation failed. Try installing manually: pip install torch>=2.4.0"; 
-    exit 1; 
+# Install function that works with either uv or pip
+install_pkg() {
+    if [ "$USE_PIP" = true ]; then
+        pip install $@
+    else
+        uv pip install $@
+    fi
 }
 
-# Install dependencies one by one
+# Install dependencies 
 echo "Installing dependencies..."
-uv pip install transformers accelerate peft trl datasets bitsandbytes sentencepiece scipy einops
+install_pkg transformers accelerate peft trl datasets bitsandbytes sentencepiece scipy einops
 
-# Install flash-attn separately without --no-deps
-echo "Installing flash-attn (this may take a while)..."
-uv pip install flash-attn
+# Skip flash-attn by default as it's complex to build
+echo "Note: Skipping flash-attn installation for stability"
+echo "The model will work without it, just slightly slower"
 
 # Install unsloth
 echo "Installing unsloth..."
-uv pip install unsloth
+install_pkg unsloth
 
 # Clone unsloth if needed (for GRPO)
 if [ ! -d "unsloth" ]; then
@@ -64,13 +56,10 @@ fi
 # Install any remaining requirements
 echo "Installing required packages from requirements.txt if it exists..."
 if [ -f "requirements.txt" ]; then
-    uv pip install -r requirements.txt
+    install_pkg -r requirements.txt
 fi
 
-echo "✓ Environment setup complete!"
-echo ""
-echo "To activate this environment, run:"
-echo "    source linux_env/bin/activate"
+echo "✓ Setup complete using system PyTorch!"
 echo ""
 echo "To train a GRPO model, run:"
 echo "    python qwen_notebook_clone.py"
@@ -78,7 +67,8 @@ echo ""
 echo "To convert the model to GGUF, run:"
 echo "    ./create_gguf.sh"
 
-# Optional fallback instructions if flash-attn installation fails
+# Optional flash-attn installation instructions
 echo ""
-echo "NOTE: If you experience issues with flash-attn installation, you can try manually installing it after activating the environment:"
-echo "    pip install flash-attn --no-build-isolation" 
+echo "NOTE: If you want to install flash-attn for faster training:"
+echo "    1. SKIP_CUDA_BUILD=1 pip install flash-attn"
+echo "    2. pip install flash-attn --no-build-isolation" 
