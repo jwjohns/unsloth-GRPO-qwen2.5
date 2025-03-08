@@ -1,9 +1,0 @@
-torch>=2.1.0
-unsloth>=2023.10.1
-datasets>=2.14.0
-trl>=0.7.4
-vllm>=0.3.0
-transformers>=4.35.0
-accelerate>=0.25.0
-bitsandbytes>=0.41.0
-peft>=0.6.0 
