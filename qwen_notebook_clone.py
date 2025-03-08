@@ -158,8 +158,8 @@ training_args = GRPOConfig(
     # Enable detailed metrics logging
     log_level = "info",
     disable_tqdm = False,  # Ensure progress bars are displayed
-    evaluation_strategy = "steps",  # Enable regular evaluation
-    eval_steps = 50,  # Evaluate frequently to update metrics
+    logging_steps = 5,  # Log metrics frequently
+    evaluation_strategy = "no",  # Disable evaluation since we don't have an eval dataset
 )
 
 # Train the model with extended training
