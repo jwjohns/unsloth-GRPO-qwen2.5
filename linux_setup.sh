@@ -6,12 +6,6 @@ set -e  # Exit on error
 
 echo "Setting up environment for GRPO training on Linux..."
 
-# Verify PyTorch 2.4 is installed
-python -c "import torch; assert torch.__version__.startswith('2.4'), 'PyTorch 2.4+ required, found '+torch.__version__; print('✓ PyTorch', torch.__version__)" || { 
-    echo "Error: PyTorch 2.4+ not found. Please install it first."; 
-    exit 1; 
-}
-
 # Create virtual environment if it doesn't exist
 if [ ! -d "linux_env" ]; then
     echo "Creating virtual environment..."
@@ -37,8 +31,28 @@ which uv || {
 
 # Install required packages
 echo "Installing required packages..."
-uv pip install setuptools
-uv pip install transformers accelerate peft trl datasets bitsandbytes sentencepiece scipy einops flash-attn --no-deps
+uv pip install setuptools wheel
+
+# First ensure PyTorch is properly installed in the virtual environment
+echo "Installing PyTorch 2.4..."
+uv pip install torch>=2.4.0
+
+# Verify PyTorch 2.4 installation
+python -c "import torch; assert torch.__version__.startswith('2.4'), 'PyTorch 2.4+ required, found '+torch.__version__; print('✓ PyTorch', torch.__version__)" || { 
+    echo "Error: PyTorch 2.4+ installation failed. Try installing manually: pip install torch>=2.4.0"; 
+    exit 1; 
+}
+
+# Install dependencies one by one
+echo "Installing dependencies..."
+uv pip install transformers accelerate peft trl datasets bitsandbytes sentencepiece scipy einops
+
+# Install flash-attn separately without --no-deps
+echo "Installing flash-attn (this may take a while)..."
+uv pip install flash-attn
+
+# Install unsloth
+echo "Installing unsloth..."
 uv pip install unsloth
 
 # Clone unsloth if needed (for GRPO)
@@ -47,6 +61,7 @@ if [ ! -d "unsloth" ]; then
     git clone https://github.com/unslothai/unsloth.git
 fi
 
+# Install any remaining requirements
 echo "Installing required packages from requirements.txt if it exists..."
 if [ -f "requirements.txt" ]; then
     uv pip install -r requirements.txt
@@ -61,4 +76,9 @@ echo "To train a GRPO model, run:"
 echo "    python qwen_notebook_clone.py"
 echo ""
 echo "To convert the model to GGUF, run:"
-echo "    ./create_gguf.sh" 
+echo "    ./create_gguf.sh"
+
+# Optional fallback instructions if flash-attn installation fails
+echo ""
+echo "NOTE: If you experience issues with flash-attn installation, you can try manually installing it after activating the environment:"
+echo "    pip install flash-attn --no-build-isolation" 
